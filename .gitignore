@@ -1,0 +1,14 @@
+# Node.js
+node_modules/
+npm-debug.log
+
+# Environment variables
+.env
+
+# MacOS
+.DS_Store
+
+# Google Apps Script
+# Note: .clasp.json contains your script ID and rootDir. 
+# It's usually safe to commit unless you want to keep your script ID totally private. 
+# .clasprc.json (which contains auth tokens) is what MUST be ignored, but it lives in your home directory anyway.

@@ -1,0 +1,16 @@
+{
+  "name": "docpilot",
+  "version": "1.0.0",
+  "description": "Google Docs AI Copilot prototype",
+  "scripts": {
+    "login": "npx clasp login",
+    "create": "npx clasp create --type docs --rootDir ./src",
+    "push": "npx clasp push",
+    "pull": "npx clasp pull",
+    "open": "npx clasp open"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2",
+    "@types/google-apps-script": "^1.0.83"
+  }
+}
