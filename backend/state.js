@@ -121,19 +121,40 @@ async function agentNode(state) {
     5. To inject newly generated content into the document, use targetIndices: [-1] and call 'appendParagraph' with the generated text as the argument. (e.g. methodName: "appendParagraph", args: ["The text"])
     6. To format specific parts of generated text (like a title), you MUST split the generated text and append it as multiple separate paragraphs using multiple actions.
     7. To change text color, use 'setForegroundColor' with a Hex string (e.g. args: ["#0000FF"]).
-    8. If you are not 100% sure of an exact method name, YOU MUST USE THE SEARCH TOOL to look up the Google Apps Script DocumentApp documentation.
-    9. If the user tells you that your previous attempt failed with an error, YOU MUST USE THE SEARCH TOOL to figure out why it failed before trying again. DO NOT GUESS.
-    10. When you have the correct methods, use the submit_actions tool.
+    8. To align text, use 'setAlignment' with the Enum string (e.g. args: ["DocumentApp.HorizontalAlignment.CENTER"]).
+    9. If you are not 100% sure of an exact method name, YOU MUST USE THE SEARCH TOOL to look up the Google Apps Script DocumentApp documentation.
+    10. If the user tells you that your previous attempt failed with an error, YOU MUST USE THE SEARCH TOOL to figure out why it failed before trying again. DO NOT GUESS.
+    11. When you have the correct methods, use the submit_actions tool. Double check your JSON bracket syntax.
     ${extraPrompt}`;
 
-    // 4. Call the LLM
-    const result = await boundLlm.invoke([
-        { role: "system", content: systemPrompt },
-        { role: "user", content: state.userPrompt },
-        ...state.messages
-    ]);
-
-    return { messages: [result] };
+    // 4. Call the LLM (with retry logic for Groq JSON tool_use_failed errors)
+    let retries = 3;
+    let localMessages = [...state.messages];
+    
+    while (retries > 0) {
+        try {
+            const result = await boundLlm.invoke([
+                { role: "system", content: systemPrompt },
+                { role: "user", content: state.userPrompt },
+                ...localMessages
+            ]);
+            // If there were retries, we might want to return the localMessages we added so they are persisted?
+            // Actually, we can just return the final result. LangGraph will append it.
+            return { messages: [result] };
+        } catch (e) {
+            const errorStr = e.toString();
+            if (errorStr.includes("tool_use_failed") && retries > 1) {
+                console.log("Groq LLM JSON Syntax Error. Appending feedback and retrying...");
+                localMessages.push({ 
+                    role: "user", 
+                    content: "CRITICAL SYSTEM ERROR: Your previous tool call failed with 'tool_use_failed' because you output malformed JSON. Specifically, you are adding an extra closing bracket ']]' at the end of the args array (e.g. args: ['#0000FF']]). DO NOT do this. Check your brackets carefully and retry." 
+                });
+                retries--;
+                continue;
+            }
+            throw e;
+        }
+    }
 }
 
 // 5. The Routing Logic (Conditional Edge)
