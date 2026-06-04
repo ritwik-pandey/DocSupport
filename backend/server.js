@@ -14,19 +14,30 @@ app.post('/api/process', async (req, res) => {
 
     console.log('Received prompt from user:', req.body.userPrompt);
 
-    // Pass the incoming Google Docs data into our LangGraph
+    const incomingMessages = req.body.error
+        ? [{ role: "user", content: `My previous attempt failed with this error: ${req.body.error}. Please fix your JSON actions and try again.` }]
+        : [];
     const initialState = {
         userPrompt: req.body.userPrompt,
-        documentStructure: req.body.documentStructure
+        documentStructure: req.body.documentStructure,
+        messages: incomingMessages
+    };
+
+    const config = {
+        configurable: { thread_id: req.body.thread_id || "test_doc" }
     };
 
     // Run the graph!
-    const finalState = await appGraph.invoke(initialState);
+    const finalState = await appGraph.invoke(initialState, config);
+
+    const lastMessage = finalState.messages[finalState.messages.length - 1];
+    const submitCall = lastMessage.tool_calls.find(t => t.name === "submit_actions");
+    const actions = submitCall ? submitCall.args.actions : [];
 
     // Send the final actions back to Google Docs
     res.json({
         status: 'success',
-        actions: finalState.actions
+        actions: actions
     });
 
 });

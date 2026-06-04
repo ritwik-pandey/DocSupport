@@ -80,40 +80,57 @@ function sendToBackend() {
     return;
   }
 
-  const text = doc.getBody().getText();
-  const structure = getFullStructure(); // Get detailed structure
+  DocumentApp.getUi().alert('Sending data to backend...');
 
-  const backendUrl = 'https://staff-tracking-supplies-maximum.trycloudflare.com/api/process';
 
   const payload = {
     userPrompt: userPrompt,
-    documentContent: text,
-    documentStructure: structure,
-    source: 'Google Docs'
+    documentContent: doc.getBody().getText(),
+    documentStructure: getFullStructure(),
+    source: 'Google Docs',
+    thread_id: "doc-thread-" + new Date().getTime()
   };
+  // 2. Start the conversation loop
+  communicateWithAI(payload);
+}
 
+function communicateWithAI(payload, retryCount = 0) {
+  // IMPORTANT: Make sure this is your actual active Cloudflare/Localtunnel URL!
+  const backendUrl = 'https://apartments-fireplace-cho-abroad.trycloudflare.com/api/process';
   const options = {
     method: 'post',
     contentType: 'application/json',
     payload: JSON.stringify(payload),
-    headers: {
-      "Bypass-Tunnel-Reminder": "true" // Required to bypass Localtunnel's warning page
-    },
-    muteHttpExceptions: true // Useful for seeing error messages from the backend
+    headers: { "Bypass-Tunnel-Reminder": "true" },
+    muteHttpExceptions: true
   };
-
   try {
-    DocumentApp.getUi().alert('Sending data to backend...');
     const response = UrlFetchApp.fetch(backendUrl, options);
-
-    // Check if the request was successful
     if (response.getResponseCode() === 200) {
       const result = JSON.parse(response.getContentText());
-
       if (result.actions && result.actions.length > 0) {
-        // Pass the actions to our execution engine!
-        applyActions(result.actions);
-        DocumentApp.getUi().alert('Magic complete! I have applied the changes to your document.');
+
+        // --- THE REFLECTION LOOP ---
+        try {
+          // Try to execute the AI's actions
+          applyActions(result.actions);
+          DocumentApp.getUi().alert('Magic complete! I successfully applied the changes.');
+
+        } catch (executionError) {
+          if (retryCount >= 2) {
+            DocumentApp.getUi().alert('AI failed 3 times in a row. Giving up! Last error: ' + executionError.toString());
+            return; // Stop the loop
+          }
+          // IF IT FAILS, we catch the error!
+          DocumentApp.getUi().alert('AI made a mistake! Sending error back for reflection:\n' + executionError.toString());
+
+          // Add the error to the payload
+          payload.error = executionError.toString();
+
+          // Call this exact function again to try again!
+          communicateWithAI(payload, retryCount + 1);
+        }
+
       } else {
         DocumentApp.getUi().alert('Backend returned successfully, but gave no actions to perform.');
       }
@@ -124,4 +141,3 @@ function sendToBackend() {
     DocumentApp.getUi().alert('Connection failed: ' + error.toString());
   }
 }
-
