@@ -7,17 +7,22 @@ function applyActions(actions) {
 
   actions.forEach(action => {
     action.targetIndices.forEach(index => {
-      const child = body.getChild(index);
-      if (child) {
-        let p;
+      let p;
+      if (index === -1) {
+        p = body; // Target the Document Body itself to append content
+      } else {
+        const child = body.getChild(index);
+        if (!child) return;
+        
         const type = child.getType();
         if (type === DocumentApp.ElementType.PARAGRAPH) p = child.asParagraph();
         else if (type === DocumentApp.ElementType.LIST_ITEM) p = child.asListItem();
         else if (type === DocumentApp.ElementType.TABLE) p = child.asTable();
         else p = child;
+      }
 
-
-        // Loop through all the methods the AI decided to call on this paragraph!
+      if (p) {
+        // Loop through all the methods the AI decided to call on this element!
         action.methodsToCall.forEach(func => {
           
           // Parse arguments to handle Google Apps Script Enums (like DocumentApp.HorizontalAlignment.CENTER)
@@ -31,7 +36,13 @@ function applyActions(actions) {
 
           // Check if the method belongs to the element itself (like setAlignment)
           if (typeof p[func.methodName] === 'function') {
-            p[func.methodName](...parsedArgs);
+            const result = p[func.methodName](...parsedArgs);
+            
+            // Critical fix: If the method appended a new element, we must update the 'p' pointer 
+            // so that subsequent methods (like setAlignment) apply to the NEW paragraph, not the Body!
+            if (func.methodName.startsWith('append') || func.methodName.startsWith('insert')) {
+              p = result;
+            }
           } 
           // Otherwise, it belongs to the Text element (like setFontSize)
           else if (typeof p.editAsText === 'function' && typeof p.editAsText()[func.methodName] === 'function') {
