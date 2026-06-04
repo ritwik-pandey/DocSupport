@@ -3,12 +3,19 @@
  */
 function applyActions(actions) {
   const doc = DocumentApp.getActiveDocument();
-  const paragraphs = doc.getBody().getParagraphs();
+  const body = doc.getBody();
 
   actions.forEach(action => {
-    paragraphs.forEach(p => {
-      // Find the matching paragraphs
-      if (p.getHeading().name() === action.targetElement) {
+    action.targetIndices.forEach(index => {
+      const child = body.getChild(index);
+      if (child) {
+        let p;
+        const type = child.getType();
+        if (type === DocumentApp.ElementType.PARAGRAPH) p = child.asParagraph();
+        else if (type === DocumentApp.ElementType.LIST_ITEM) p = child.asListItem();
+        else if (type === DocumentApp.ElementType.TABLE) p = child.asTable();
+        else p = child;
+
 
         // Loop through all the methods the AI decided to call on this paragraph!
         action.methodsToCall.forEach(func => {
@@ -22,16 +29,16 @@ function applyActions(actions) {
             return arg;
           });
 
-          // Check if the method belongs to the Paragraph itself (like setAlignment)
+          // Check if the method belongs to the element itself (like setAlignment)
           if (typeof p[func.methodName] === 'function') {
             p[func.methodName](...parsedArgs);
           } 
           // Otherwise, it belongs to the Text element (like setFontSize)
-          else if (typeof p.editAsText()[func.methodName] === 'function') {
+          else if (typeof p.editAsText === 'function' && typeof p.editAsText()[func.methodName] === 'function') {
             p.editAsText()[func.methodName](...parsedArgs);
           }
           else {
-            throw new Error(`Method ${func.methodName} does not exist on Paragraph or Text!`);
+            throw new Error(`Method ${func.methodName} does not exist on this element or its Text!`);
           }
           
         });

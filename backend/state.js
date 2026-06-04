@@ -35,7 +35,7 @@ const submitActionsTool = tool(
         schema: z.object({
             actions: z.array(
                 z.object({
-                    targetElement: z.enum(["NORMAL", "HEADING1", "HEADING2", "TITLE"]),
+                    targetIndices: z.array(z.number()).describe("The exact index numbers of the paragraphs to target. Reference the index property in the provided document structure."),
                     methodsToCall: z.array(
                         z.object({
                             methodName: z.string(),
@@ -89,11 +89,12 @@ async function agentNode(state) {
     Current document structure: ${JSON.stringify(state.documentStructure, null, 2)}
     
     CRITICAL RULES:
-    1. You can write methods for BOTH Google Apps Script 'Paragraph' elements (e.g. setAlignment) OR 'Text' elements (e.g. setFontSize).
+    1. You can write methods for Google Apps Script 'Paragraph', 'ListItem', 'Table' elements, OR their underlying 'Text' elements (e.g. setFontSize).
     2. If a method requires an Enum (like DocumentApp.HorizontalAlignment.CENTER), pass it exactly like that as a STRING in the args array (e.g. args: ["DocumentApp.HorizontalAlignment.CENTER"]). The executor will parse it.
-    3. If you are not 100% sure of the exact method name, YOU MUST USE THE SEARCH TOOL to look up the Google Apps Script DocumentApp documentation.
-    4. If the user tells you that your previous attempt failed with an error, YOU MUST USE THE SEARCH TOOL to figure out why it failed before trying again. DO NOT GUESS.
-    5. When you have the correct methods, use the submit_actions tool.
+    3. You must use the 'index' property of elements in the provided document structure to populate 'targetIndices'. This allows you to surgically target specific paragraphs, lists, or tables.
+    4. If you are not 100% sure of the exact method name, YOU MUST USE THE SEARCH TOOL to look up the Google Apps Script DocumentApp documentation.
+    5. If the user tells you that your previous attempt failed with an error, YOU MUST USE THE SEARCH TOOL to figure out why it failed before trying again. DO NOT GUESS.
+    6. When you have the correct methods, use the submit_actions tool.
     ${extraPrompt}`;
 
     // 4. Call the LLM

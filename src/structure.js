@@ -2,33 +2,42 @@ function getFullStructure() {
   const doc = DocumentApp.getActiveDocument();
   if (!doc) return [];
 
-  const paragraphs = doc.getBody().getParagraphs();
+  const body = doc.getBody();
   let structure = [];
 
-  for (let i = 0; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
-    const text = p.getText();
+  for (let i = 0; i < body.getNumChildren(); i++) {
+    const child = body.getChild(i);
+    const type = child.getType().toString();
 
-    if (text.trim() === '') continue;
-
-    const textElement = p.editAsText();
-
-
-    const fontSize = textElement.getFontSize(0);
-    const isBold = textElement.isBold(0);
-    const isItalic = textElement.isItalic(0);
-    const fontFamily = textElement.getFontFamily(0);
-
-    structure.push({
-      text: text,
-      heading: p.getHeading().name(),
-      formatting: {
-        fontSize: fontSize,
-        isBold: isBold,
-        isItalic: isItalic,
-        fontFamily: fontFamily
-      }
-    });
+    if (type === 'PARAGRAPH') {
+      const p = child.asParagraph();
+      if (p.getText().trim() === '') continue; // Skip empty paragraphs
+      structure.push({ 
+        index: i, 
+        type: 'PARAGRAPH', 
+        text: p.getText(), 
+        heading: p.getHeading().name() 
+      });
+    } 
+    else if (type === 'LIST_ITEM') {
+      const li = child.asListItem();
+      structure.push({ 
+        index: i, 
+        type: 'LIST_ITEM', 
+        text: li.getText(), 
+        glyphType: li.getGlyphType().name(),
+        nestingLevel: li.getNestingLevel()
+      });
+    } 
+    else if (type === 'TABLE') {
+      const table = child.asTable();
+      structure.push({ 
+        index: i, 
+        type: 'TABLE', 
+        rows: table.getNumRows(), 
+        cols: table.getRow(0).getNumCells() 
+      });
+    }
   }
 
   return structure;
